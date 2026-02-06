@@ -13,10 +13,6 @@
     }
   ],
   "env": {
-    "GOOGLE_SHEETS_ID": "@google_sheets_id",
-    "GOOGLE_CREDENTIALS_JSON": "@google_credentials_json",
-    "OPENROUTER_API_KEY": "@openrouter_api_key",
-    "ANTHROPIC_API_KEY": "@anthropic_api_key",
     "FLASK_ENV": "production",
     "DEBUG": "False"
   }
