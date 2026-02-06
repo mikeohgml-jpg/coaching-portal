@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}New Client Registration - Coaching Portal{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h2 class="card-title mb-0">New Client Registration</h2>
+            </div>
+            <div class="card-body p-5">
+                <form id="newClientForm" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Full Name *</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="name" 
+                            name="name" 
+                            placeholder="John Doe"
+                            required
+                            minlength="1"
+                            maxlength="255">
+                        <div class="invalid-feedback">
+                            Please provide a valid name.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email Address *</label>
+                        <input 
+                            type="email" 
+                            class="form-control" 
+                            id="email" 
+                            name="email" 
+                            placeholder="john@example.com"
+                            required>
+                        <div class="invalid-feedback">
+                            Please provide a valid email address.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="packageType" class="form-label">Coaching Package *</label>
+                        <select 
+                            class="form-select" 
+                            id="packageType" 
+                            name="package_type" 
+                            required>
+                            <option value="">-- Select a package --</option>
+                            <option value="Starter">Starter Package</option>
+                            <option value="Standard">Standard Package</option>
+                            <option value="Premium">Premium Package</option>
+                            <option value="Executive">Executive Package</option>
+                            <option value="Custom">Custom Package</option>
+                        </select>
+                        <div class="invalid-feedback">
+                            Please select a package.
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="startDate" class="form-label">Start Date *</label>
+                            <input 
+                                type="date" 
+                                class="form-control" 
+                                id="startDate" 
+                                name="start_date" 
+                                required>
+                            <div class="invalid-feedback">
+                                Please provide a valid start date.
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="endDate" class="form-label">End Date *</label>
+                            <input 
+                                type="date" 
+                                class="form-control" 
+                                id="endDate" 
+                                name="end_date" 
+                                required>
+                            <div class="invalid-feedback">
+                                Please provide a valid end date.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="amountPaid" class="form-label">Amount Paid ($) *</label>
+                        <input 
+                            type="number" 
+                            class="form-control" 
+                            id="amountPaid" 
+                            name="amount_paid" 
+                            placeholder="1500.00"
+                            step="0.01"
+                            min="0.01"
+                            required>
+                        <div class="invalid-feedback">
+                            Please provide a valid amount.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes (Optional)</label>
+                        <textarea 
+                            class="form-control" 
+                            id="notes" 
+                            name="notes" 
+                            rows="3"
+                            placeholder="Any additional notes about this client..."
+                            maxlength="500"></textarea>
+                        <small class="form-text text-muted">Max 500 characters</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <div id="formMessage" class="alert d-none" role="alert"></div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-secondary">Clear Form</button>
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <span id="submitBtnText">Register Client</span>
+                            <span id="submitSpinner" class="spinner-border spinner-border-sm d-none ms-2" role="status" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('newClientForm');
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Validate form
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+        
+        // Prepare form data
+        const formData = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            package_type: document.getElementById('packageType').value,
+            start_date: document.getElementById('startDate').value,
+            end_date: document.getElementById('endDate').value,
+            amount_paid: parseFloat(document.getElementById('amountPaid').value),
+            notes: document.getElementById('notes').value || null
+        };
+        
+        // Show loading state
+        const submitBtn = document.getElementById('submitBtn');
+        const submitBtnText = document.getElementById('submitBtnText');
+        const submitSpinner = document.getElementById('submitSpinner');
+        submitBtn.disabled = true;
+        submitBtnText.textContent = 'Processing...';
+        submitSpinner.classList.remove('d-none');
+        
+        try {
+            const response = await fetch('/api/clients/new', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showSuccess('Client registered successfully! Welcome email sent.');
+                form.reset();
+                form.classList.remove('was-validated');
+                setTimeout(() => {
+                    window.location.href = '/success?type=new';
+                }, 2000);
+            } else {
+                showError(data.error || 'Failed to register client. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showError('Network error. Please try again.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtnText.textContent = 'Register Client';
+            submitSpinner.classList.add('d-none');
+        }
+    });
+    
+    function showSuccess(message) {
+        const messageDiv = document.getElementById('formMessage');
+        messageDiv.className = 'alert alert-success';
+        messageDiv.textContent = message;
+        messageDiv.classList.remove('d-none');
+    }
+    
+    function showError(message) {
+        const messageDiv = document.getElementById('formMessage');
+        messageDiv.className = 'alert alert-danger';
+        messageDiv.textContent = message;
+        messageDiv.classList.remove('d-none');
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}Existing Client Session - Coaching Portal{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-lg">
+            <div class="card-header bg-success text-white">
+                <h2 class="card-title mb-0">Record Coaching Session</h2>
+            </div>
+            <div class="card-body p-5">
+                <form id="existingClientForm" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="clientName" class="form-label">Client Name *</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="clientName" 
+                            name="client_name" 
+                            placeholder="Select or type client name"
+                            list="clientList"
+                            autocomplete="off"
+                            required>
+                        <datalist id="clientList"></datalist>
+                        <div class="invalid-feedback">
+                            Please select a valid client.
+                        </div>
+                    </div>
+
+                    <div id="clientInfo" class="alert alert-info d-none" role="alert">
+                        <p><strong>Package:</strong> <span id="infoPackage"></span></p>
+                        <p><strong>Period:</strong> <span id="infoPeriod"></span></p>
+                        <p class="mb-0"><strong>Email:</strong> <span id="infoEmail"></span></p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="coachingType" class="form-label">Coaching Type *</label>
+                        <select 
+                            class="form-select" 
+                            id="coachingType" 
+                            name="coaching_type" 
+                            required>
+                            <option value="">-- Select coaching type --</option>
+                            <option value="One-on-One">One-on-One</option>
+                            <option value="Group Coaching">Group Coaching</option>
+                            <option value="Workshop">Workshop</option>
+                            <option value="Follow-up">Follow-up Session</option>
+                            <option value="Strategy Session">Strategy Session</option>
+                            <option value="Accountability">Accountability Check-in</option>
+                        </select>
+                        <div class="invalid-feedback">
+                            Please select a coaching type.
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="participantCount" class="form-label">Number of Participants *</label>
+                            <input 
+                                type="number" 
+                                class="form-control" 
+                                id="participantCount" 
+                                name="participant_count" 
+                                placeholder="1"
+                                min="1"
+                                value="1"
+                                required>
+                            <div class="invalid-feedback">
+                                Please provide a valid participant count.
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label for="coachingHours" class="form-label">Coaching Hours *</label>
+                            <input 
+                                type="number" 
+                                class="form-control" 
+                                id="coachingHours" 
+                                name="coaching_hours" 
+                                placeholder="2.0"
+                                step="0.25"
+                                min="0.25"
+                                required>
+                            <div class="invalid-feedback">
+                                Please provide valid coaching hours.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="sessionDate" class="form-label">Session Date *</label>
+                        <input 
+                            type="date" 
+                            class="form-control" 
+                            id="sessionDate" 
+                            name="session_date" 
+                            required>
+                        <div class="invalid-feedback">
+                            Please provide a valid session date.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="amountCollected" class="form-label">Amount Collected ($) *</label>
+                        <input 
+                            type="number" 
+                            class="form-control" 
+                            id="amountCollected" 
+                            name="amount_collected" 
+                            placeholder="300.00"
+                            step="0.01"
+                            min="0"
+                            required>
+                        <div class="invalid-feedback">
+                            Please provide a valid amount.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="newEndDate" class="form-label">Update Client End Date (Optional)</label>
+                        <input 
+                            type="date" 
+                            class="form-control" 
+                            id="newEndDate" 
+                            name="new_end_date">
+                        <small class="form-text text-muted">Leave blank to keep existing end date</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Session Notes (Optional)</label>
+                        <textarea 
+                            class="form-control" 
+                            id="notes" 
+                            name="notes" 
+                            rows="3"
+                            placeholder="Any notes about this session..."
+                            maxlength="500"></textarea>
+                        <small class="form-text text-muted">Max 500 characters</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <div id="formMessage" class="alert d-none" role="alert"></div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="reset" class="btn btn-secondary">Clear Form</button>
+                        <button type="submit" class="btn btn-success" id="submitBtn">
+                            <span id="submitBtnText">Record Session</span>
+                            <span id="submitSpinner" class="spinner-border spinner-border-sm d-none ms-2" role="status" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let clientsData = [];
+
+document.addEventListener('DOMContentLoaded', async function() {
+    const form = document.getElementById('existingClientForm');
+    const clientNameInput = document.getElementById('clientName');
+    
+    // Load clients on page load
+    await loadClients();
+    
+    // Set today's date as default
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('sessionDate').value = today;
+    
+    // Client selection handling
+    clientNameInput.addEventListener('change', function() {
+        const selectedName = this.value;
+        const client = clientsData.find(c => c.name === selectedName);
+        
+        if (client) {
+            showClientInfo(client);
+        } else {
+            hideClientInfo();
+        }
+    });
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+        
+        // Validate that selected client exists
+        const selectedName = clientNameInput.value;
+        const client = clientsData.find(c => c.name === selectedName);
+        
+        if (!client) {
+            showError('Please select a valid client from the list.');
+            return;
+        }
+        
+        const formData = {
+            client_name: document.getElementById('clientName').value,
+            coaching_type: document.getElementById('coachingType').value,
+            participant_count: parseInt(document.getElementById('participantCount').value),
+            coaching_hours: parseFloat(document.getElementById('coachingHours').value),
+            amount_collected: parseFloat(document.getElementById('amountCollected').value),
+            session_date: document.getElementById('sessionDate').value,
+            notes: document.getElementById('notes').value || null,
+            new_end_date: document.getElementById('newEndDate').value || null
+        };
+        
+        // Show loading state
+        const submitBtn = document.getElementById('submitBtn');
+        const submitBtnText = document.getElementById('submitBtnText');
+        const submitSpinner = document.getElementById('submitSpinner');
+        submitBtn.disabled = true;
+        submitBtnText.textContent = 'Processing...';
+        submitSpinner.classList.remove('d-none');
+        
+        try {
+            const response = await fetch('/api/clients/existing-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                showSuccess('Session recorded successfully! Invoice email sent.');
+                form.reset();
+                form.classList.remove('was-validated');
+                document.getElementById('sessionDate').value = today;
+                hideClientInfo();
+                setTimeout(() => {
+                    window.location.href = '/success?type=existing';
+                }, 2000);
+            } else {
+                showError(data.error || 'Failed to record session. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showError('Network error. Please try again.');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtnText.textContent = 'Record Session';
+            submitSpinner.classList.add('d-none');
+        }
+    });
+    
+    function showSuccess(message) {
+        const messageDiv = document.getElementById('formMessage');
+        messageDiv.className = 'alert alert-success';
+        messageDiv.textContent = message;
+        messageDiv.classList.remove('d-none');
+    }
+    
+    function showError(message) {
+        const messageDiv = document.getElementById('formMessage');
+        messageDiv.className = 'alert alert-danger';
+        messageDiv.textContent = message;
+        messageDiv.classList.remove('d-none');
+    }
+    
+    async function loadClients() {
+        try {
+            const response = await fetch('/api/clients');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                clientsData = data.clients;
+                populateClientList();
+            }
+        } catch (error) {
+            console.error('Error loading clients:', error);
+            showError('Failed to load clients list.');
+        }
+    }
+    
+    function populateClientList() {
+        const datalist = document.getElementById('clientList');
+        datalist.innerHTML = '';
+        
+        clientsData.forEach(client => {
+            const option = document.createElement('option');
+            option.value = client.name;
+            datalist.appendChild(option);
+        });
+    }
+    
+    function showClientInfo(client) {
+        const info = document.getElementById('clientInfo');
+        document.getElementById('infoPackage').textContent = client.package_type;
+        document.getElementById('infoPeriod').textContent = `${client.package_type || 'N/A'}`;
+        document.getElementById('infoEmail').textContent = client.email;
+        info.classList.remove('d-none');
+    }
+    
+    function hideClientInfo() {
+        document.getElementById('clientInfo').classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}
