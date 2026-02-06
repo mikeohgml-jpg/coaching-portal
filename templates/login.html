@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Coaching Portal{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center" style="margin-top: 100px;">
+    <div class="col-md-5">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h2 class="card-title mb-0">Coaching Portal</h2>
+            </div>
+            <div class="card-body p-5">
+                <h3 class="mb-4 text-center">Login</h3>
+                
+                {% if error %}
+                    <div class="alert alert-danger" role="alert">
+                        {{ error }}
+                    </div>
+                {% endif %}
+                
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="username" 
+                            name="username"
+                            placeholder="Enter username"
+                            required
+                            autofocus>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="form-label">Password</label>
+                        <input 
+                            type="password" 
+                            class="form-control" 
+                            id="password" 
+                            name="password"
+                            placeholder="Enter password"
+                            required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100" style="padding: 10px; font-size: 16px;">
+                        Login
+                    </button>
+                </form>
+                
+                <hr>
+                <p class="text-muted text-center small mt-3">
+                    Default credentials:<br>
+                    Username: <code>admin</code><br>
+                    Password: <code>coaching123</code>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .card {
+        border: none;
+        border-radius: 8px;
+    }
+    .card-header {
+        border-radius: 8px 8px 0 0;
+    }
+    .form-control {
+        border-radius: 6px;
+        padding: 10px;
+    }
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    code {
+        background-color: #f5f5f5;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}

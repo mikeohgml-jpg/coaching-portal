@@ -1,11 +1,12 @@
 """Main Flask application for Coaching Portal."""
 
 import logging
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_cors import CORS
 from datetime import datetime
 
 from config import get_config
+from auth import login_bp, login_required
 from models import (
     NewClientFormData,
     ExistingClientFormData,
@@ -38,6 +39,12 @@ def create_app():
     config = get_config()
     app.config.from_object(config)
     
+    # Set secret key for sessions
+    app.secret_key = app.config.get('SECRET_KEY', 'dev-secret-key-change-me')
+    
+    # Register login blueprint
+    app.register_blueprint(login_bp)
+    
     # Initialize CORS
     CORS(app, resources={r"/api/*": {"origins": app.config.get("CORS_ORIGINS", "*")}})
     
@@ -68,6 +75,7 @@ def create_app():
     
     # Display new client form
     @app.route("/form/new-client", methods=["GET"])
+    @login_required
     def new_client_form():
         """Display form for new client registration."""
         try:
@@ -78,6 +86,7 @@ def create_app():
     
     # Display existing client form
     @app.route("/form/existing-client", methods=["GET"])
+    @login_required
     def existing_client_form():
         """Display form for existing client session."""
         try:
