@@ -30,7 +30,7 @@ def login_page():
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['user_logged_in'] = True
             session['username'] = username
-            return redirect(url_for('index'))
+            return redirect(url_for('new_client_form'))
         else:
             error = "Invalid username or password"
             return render_template('login.html', error=error)
