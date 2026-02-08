@@ -10,6 +10,8 @@ class NewClientFormData(BaseModel):
     
     name: str = Field(..., min_length=1, max_length=255)
     email: EmailStr
+    address: Optional[str] = Field(None, max_length=500)
+    contact: Optional[str] = Field(None, max_length=20)
     package_type: str = Field(..., description="Type of coaching package")
     start_date: str = Field(..., description="YYYY-MM-DD format")
     end_date: str = Field(..., description="YYYY-MM-DD format")
@@ -39,6 +41,8 @@ class NewClientFormData(BaseModel):
         "example": {
             "name": "John Doe",
             "email": "john@example.com",
+            "address": "123 Main St, City, State 12345",
+            "contact": "+1-555-0123",
             "package_type": "Standard",
             "start_date": "2024-01-01",
             "end_date": "2024-03-31",
@@ -53,7 +57,6 @@ class ExistingClientFormData(BaseModel):
     
     client_name: str = Field(..., min_length=1, max_length=255)
     coaching_type: str = Field(..., description="Type of coaching session")
-    participant_count: int = Field(..., gt=0)
     coaching_hours: float = Field(..., gt=0)
     amount_collected: float = Field(..., ge=0)
     session_date: str = Field(..., description="YYYY-MM-DD format")
@@ -95,6 +98,9 @@ class ClientRecord(BaseModel):
     start_date: str
     end_date: str
     amount_paid: float
+    contract_number: Optional[str] = None
+    invoice_number: Optional[str] = None
+    client_id: Optional[str] = None
     created_at: str
     notes: Optional[str] = None
     

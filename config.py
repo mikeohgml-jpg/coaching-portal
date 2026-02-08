@@ -19,7 +19,8 @@ class Config:
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     
     # API configuration
-    GOOGLE_SHEETS_ID = os.getenv("GOOGLE_SHEETS_ID")
+    GOOGLE_CLIENTS_SHEET_ID = os.getenv("GOOGLE_CLIENTS_SHEET_ID")
+    GOOGLE_SESSIONS_SHEET_ID = os.getenv("GOOGLE_SESSIONS_SHEET_ID")
     GOOGLE_CREDENTIALS_JSON = os.getenv("GOOGLE_CREDENTIALS_JSON")
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
@@ -28,7 +29,7 @@ class Config:
     DEPLOYMENT_URL = os.getenv("DEPLOYMENT_URL", "http://localhost:5000")
     
     # Cache configuration
-    CLIENT_CACHE_TTL = 300  # 5 minutes
+    CLIENT_CACHE_TTL = 30  # 30 seconds (reduced for frequent updates)
     
     # Email configuration
     GMAIL_SENDER_EMAIL = os.getenv("GMAIL_SENDER_EMAIL")

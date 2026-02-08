@@ -67,7 +67,8 @@ def check_env_file():
 def check_env_variables():
     """Check if critical environment variables are set."""
     required_vars = [
-        'GOOGLE_SHEETS_ID',
+        'GOOGLE_CLIENTS_SHEET_ID',
+        'GOOGLE_SESSIONS_SHEET_ID',
         'GOOGLE_CREDENTIALS_JSON',
         'OPENROUTER_API_KEY',
         'FLASK_ENV'

@@ -62,10 +62,12 @@ class ClientService:
             if not is_valid:
                 raise ValueError(message)
             
-            # Prepare client data
+            # Prepare client data (Contract Number will be auto-generated)
             client_data = {
                 "name": form_data.name,
                 "email": form_data.email,
+                "address": form_data.address or "",
+                "contact": form_data.contact or "",
                 "package_type": form_data.package_type,
                 "start_date": form_data.start_date,
                 "end_date": form_data.end_date,
@@ -125,7 +127,6 @@ class ClientService:
             session_data = {
                 "client_name": form_data.client_name,
                 "coaching_type": form_data.coaching_type,
-                "participant_count": form_data.participant_count,
                 "coaching_hours": form_data.coaching_hours,
                 "amount_collected": form_data.amount_collected,
                 "session_date": form_data.session_date,

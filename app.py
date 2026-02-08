@@ -198,18 +198,6 @@ def create_app():
             logger.error(f"Error rendering success page: {e}")
             return f"Success! Your submission has been recorded.", 200
 
-    @app.route("/debug/env", methods=["GET"])
-    def debug_env():
-        """Debug endpoint to check environment variables (REMOVE AFTER TESTING)."""
-        admin_user, admin_pass = get_admin_credentials()
-        return jsonify({
-            "FLASK_ENV": os.getenv('FLASK_ENV', 'not set'),
-            "ADMIN_USERNAME_exists": bool(os.getenv('ADMIN_USERNAME')),
-            "ADMIN_PASSWORD_exists": bool(os.getenv('ADMIN_PASSWORD')),
-            "ADMIN_PASSWORD_length": len(os.getenv('ADMIN_PASSWORD', '')),
-            "credentials_returned": f"{admin_user} / {len(admin_pass)} chars"
-        })
-
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({"error": "Not found"}), 404

@@ -42,6 +42,30 @@
                     </div>
 
                     <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="address" 
+                            name="address" 
+                            placeholder="123 Main St, City, State 12345"
+                            maxlength="500">
+                        <small class="form-text text-muted">Street address, city, state, ZIP</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="contact" class="form-label">Contact Number</label>
+                        <input 
+                            type="tel" 
+                            class="form-control" 
+                            id="contact" 
+                            name="contact" 
+                            placeholder="+1-555-0123"
+                            maxlength="20">
+                        <small class="form-text text-muted">Phone number (optional)</small>
+                    </div>
+
+                    <div class="mb-3">
                         <label for="packageType" class="form-label">Coaching Package *</label>
                         <select 
                             class="form-select" 
@@ -116,6 +140,15 @@
                         <small class="form-text text-muted">Max 500 characters</small>
                     </div>
 
+                    <div class="alert alert-info" role="alert">
+                        <strong>Auto-Generated Fields:</strong> 
+                        <ul class="mb-0">
+                            <li>Contract Number: CT-YYYY-### format (e.g., CT-2026-001)</li>
+                            <li>Client Invoice Number: INV-5### format (e.g., INV-5001)</li>
+                            <li>Session Invoice Numbers: INV-### format (e.g., INV-001)</li>
+                        </ul>
+                    </div>
+
                     <div class="mb-3">
                         <div id="formMessage" class="alert d-none" role="alert"></div>
                     </div>
@@ -152,6 +185,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = {
             name: document.getElementById('name').value,
             email: document.getElementById('email').value,
+            address: document.getElementById('address').value || null,
+            contact: document.getElementById('contact').value || null,
             package_type: document.getElementById('packageType').value,
             start_date: document.getElementById('startDate').value,
             end_date: document.getElementById('endDate').value,

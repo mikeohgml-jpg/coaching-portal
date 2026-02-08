@@ -21,13 +21,14 @@ class GoogleSheetsService:
     
     def __init__(self):
         """Initialize Google Sheets service."""
-        self.clients_sheet_id = Config.GOOGLE_CLIENTS_SHEET_ID
-        self.sessions_sheet_id = Config.GOOGLE_SESSIONS_SHEET_ID
+        # Strip whitespace/newlines from sheet IDs
+        self.clients_sheet_id = (Config.GOOGLE_CLIENTS_SHEET_ID or '').strip()
+        self.sessions_sheet_id = (Config.GOOGLE_SESSIONS_SHEET_ID or '').strip()
         self.credentials = None
         self.service = None
         self.client_cache = {}
         self.cache_timestamp = None
-        
+
         try:
             self._initialize_service()
             logger.info("Google Sheets service initialized successfully")
@@ -37,7 +38,7 @@ class GoogleSheetsService:
     
     def _initialize_service(self):
         """Initialize Google Sheets API client."""
-        credentials_data = Config.GOOGLE_CREDENTIALS_JSON
+        credentials_data = (Config.GOOGLE_CREDENTIALS_JSON or '').strip()
 
         if not credentials_data:
             raise ValueError("GOOGLE_CREDENTIALS_JSON not configured")

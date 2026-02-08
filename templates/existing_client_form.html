@@ -13,16 +13,13 @@
                 <form id="existingClientForm" class="needs-validation" novalidate>
                     <div class="mb-3">
                         <label for="clientName" class="form-label">Client Name *</label>
-                        <input 
-                            type="text" 
-                            class="form-control" 
+                        <select 
+                            class="form-select" 
                             id="clientName" 
-                            name="client_name" 
-                            placeholder="Select or type client name"
-                            list="clientList"
-                            autocomplete="off"
+                            name="client_name"
                             required>
-                        <datalist id="clientList"></datalist>
+                            <option value="">-- Select a client --</option>
+                        </select>
                         <div class="invalid-feedback">
                             Please select a valid client.
                         </div>
@@ -54,37 +51,19 @@
                         </div>
                     </div>
 
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="participantCount" class="form-label">Number of Participants *</label>
-                            <input 
-                                type="number" 
-                                class="form-control" 
-                                id="participantCount" 
-                                name="participant_count" 
-                                placeholder="1"
-                                min="1"
-                                value="1"
-                                required>
-                            <div class="invalid-feedback">
-                                Please provide a valid participant count.
-                            </div>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="coachingHours" class="form-label">Coaching Hours *</label>
-                            <input 
-                                type="number" 
-                                class="form-control" 
-                                id="coachingHours" 
-                                name="coaching_hours" 
-                                placeholder="2.0"
-                                step="0.25"
-                                min="0.25"
-                                required>
-                            <div class="invalid-feedback">
-                                Please provide valid coaching hours.
-                            </div>
+                    <div class="mb-3">
+                        <label for="coachingHours" class="form-label">Coaching Hours *</label>
+                        <input 
+                            type="number" 
+                            class="form-control" 
+                            id="coachingHours" 
+                            name="coaching_hours" 
+                            placeholder="2.0"
+                            step="0.25"
+                            min="0.25"
+                            required>
+                        <div class="invalid-feedback">
+                            Please provide valid coaching hours.
                         </div>
                     </div>
 
@@ -127,6 +106,8 @@
                         <small class="form-text text-muted">Leave blank to keep existing end date</small>
                     </div>
 
+
+
                     <div class="mb-3">
                         <label for="notes" class="form-label">Session Notes (Optional)</label>
                         <textarea 
@@ -161,12 +142,92 @@
 <script>
 let clientsData = [];
 
+// *** DEFINE ALL FUNCTIONS FIRST ***
+
+function showSuccess(message) {
+    const messageDiv = document.getElementById('formMessage');
+    messageDiv.className = 'alert alert-success';
+    messageDiv.textContent = message;
+    messageDiv.classList.remove('d-none');
+}
+
+function showError(message) {
+    const messageDiv = document.getElementById('formMessage');
+    messageDiv.className = 'alert alert-danger';
+    messageDiv.textContent = message;
+    messageDiv.classList.remove('d-none');
+}
+
+async function loadClients() {
+    try {
+        const response = await fetch('/api/clients');
+        const data = await response.json();
+        
+        console.log('API Response:', data);
+        
+        if (data.status === 'success' && data.clients && data.clients.length > 0) {
+            clientsData = data.clients;
+            console.log('Loaded clients:', clientsData);
+            populateClientList();
+        } else {
+            console.warn('No clients found or invalid response:', data);
+            showError('No clients available. Please register a client first.');
+        }
+    } catch (error) {
+        console.error('Error loading clients:', error);
+        showError('Failed to load clients list. ' + error.message);
+    }
+}
+
+function populateClientList() {
+    const select = document.getElementById('clientName');
+    // Keep the default option
+    select.innerHTML = '<option value="">-- Select a client --</option>';
+    
+    clientsData.forEach(client => {
+        const option = document.createElement('option');
+        option.value = client.name;
+        option.textContent = client.name;
+        select.appendChild(option);
+    });
+    
+    console.log('Populated select with ' + clientsData.length + ' clients');
+}
+
+function showClientInfo(client) {
+    const info = document.getElementById('clientInfo');
+    document.getElementById('infoPackage').textContent = client.package_type;
+    document.getElementById('infoPeriod').textContent = `${client.start_date} to ${client.end_date}`;
+    document.getElementById('infoEmail').textContent = client.email;
+    info.classList.remove('d-none');
+}
+
+function hideClientInfo() {
+    const info = document.getElementById('clientInfo');
+    if (info) {
+        info.classList.add('d-none');
+    }
+}
+
+// *** NOW ADD THE EVENT LISTENER ***
+
 document.addEventListener('DOMContentLoaded', async function() {
     const form = document.getElementById('existingClientForm');
     const clientNameInput = document.getElementById('clientName');
+    const messageDiv = document.getElementById('formMessage');
+    
+    // Show loading message
+    messageDiv.className = 'alert alert-info';
+    messageDiv.textContent = 'Loading clients...';
+    messageDiv.classList.remove('d-none');
     
     // Load clients on page load
     await loadClients();
+    
+    // Hide loading message if no error
+    if (!messageDiv.textContent.includes('Failed')) {
+        messageDiv.classList.add('d-none');
+    }
     
     // Set today's date as default
     const today = new Date().toISOString().split('T')[0];
@@ -204,7 +265,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         const formData = {
             client_name: document.getElementById('clientName').value,
             coaching_type: document.getElementById('coachingType').value,
-            participant_count: parseInt(document.getElementById('participantCount').value),
             coaching_hours: parseFloat(document.getElementById('coachingHours').value),
             amount_collected: parseFloat(document.getElementById('amountCollected').value),
             session_date: document.getElementById('sessionDate').value,
@@ -252,58 +312,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             submitSpinner.classList.add('d-none');
         }
     });
-    
-    function showSuccess(message) {
-        const messageDiv = document.getElementById('formMessage');
-        messageDiv.className = 'alert alert-success';
-        messageDiv.textContent = message;
-        messageDiv.classList.remove('d-none');
-    }
-    
-    function showError(message) {
-        const messageDiv = document.getElementById('formMessage');
-        messageDiv.className = 'alert alert-danger';
-        messageDiv.textContent = message;
-        messageDiv.classList.remove('d-none');
-    }
-    
-    async function loadClients() {
-        try {
-            const response = await fetch('/api/clients');
-            const data = await response.json();
-            
-            if (data.status === 'success') {
-                clientsData = data.clients;
-                populateClientList();
-            }
-        } catch (error) {
-            console.error('Error loading clients:', error);
-            showError('Failed to load clients list.');
-        }
-    }
-    
-    function populateClientList() {
-        const datalist = document.getElementById('clientList');
-        datalist.innerHTML = '';
-        
-        clientsData.forEach(client => {
-            const option = document.createElement('option');
-            option.value = client.name;
-            datalist.appendChild(option);
-        });
-    }
-    
-    function showClientInfo(client) {
-        const info = document.getElementById('clientInfo');
-        document.getElementById('infoPackage').textContent = client.package_type;
-        document.getElementById('infoPeriod').textContent = `${client.package_type || 'N/A'}`;
-        document.getElementById('infoEmail').textContent = client.email;
-        info.classList.remove('d-none');
-    }
-    
-    function hideClientInfo() {
-        document.getElementById('clientInfo').classList.add('d-none');
-    }
 });
 </script>
 {% endblock %}
