@@ -1,13 +1,10 @@
 """Email service for Coaching Portal."""
 
 import logging
-import base64
+import smtplib
 from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from typing import Dict, Any, Optional
-from google.oauth2 import service_account
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 
 from config import Config
 from models import EmailContent
@@ -17,71 +14,52 @@ logger = logging.getLogger(__name__)
 
 
 class EmailService:
-    """Service for sending emails via Gmail API."""
-    
+    """Service for sending emails via Gmail SMTP."""
+
     def __init__(self):
-        """Initialize Gmail email service."""
-        self.credentials = None
-        self.service = None
-        self.sender_email = Config.GMAIL_SENDER_EMAIL
-        
-        try:
-            self._initialize_service()
-            logger.info("Email service initialized successfully")
-        except Exception as e:
-            logger.error(f"Error initializing email service: {e}")
-            # Continue without email service - it may not be configured
-    
-    def _initialize_service(self):
-        """Initialize Gmail API client."""
-        if not Config.GOOGLE_CREDENTIALS_JSON:
-            logger.warning("GOOGLE_CREDENTIALS_JSON not configured, email service disabled")
-            return
-        
-        try:
-            # Load service account credentials
-            self.credentials = service_account.Credentials.from_service_account_file(
-                Config.GOOGLE_CREDENTIALS_JSON,
-                scopes=['https://www.googleapis.com/auth/gmail.send']
-            )
-            
-            # Build the Gmail API service
-            self.service = build('gmail', 'v1', credentials=self.credentials)
-        except Exception as e:
-            logger.error(f"Could not initialize Gmail service: {e}")
-    
+        """Initialize Gmail SMTP email service."""
+        self.sender_email = (Config.GMAIL_SENDER_EMAIL or '').strip()
+        self.sender_password = (Config.GMAIL_APP_PASSWORD or '').strip()
+        self.sender_name = (Config.GMAIL_SENDER_NAME or 'Coaching Portal').strip()
+
+        if self.sender_email and self.sender_password:
+            logger.info(f"Email service initialized for: {self.sender_email}")
+        else:
+            logger.warning("Email service not configured (missing GMAIL_SENDER_EMAIL or GMAIL_APP_PASSWORD)")
+
     def send_email(self, email_content: EmailContent) -> bool:
-        """Send an email via Gmail API."""
+        """Send an email via Gmail SMTP."""
         try:
-            if not self.service:
-                logger.warning("Email service not available, skipping email send")
+            if not self.sender_email or not self.sender_password:
+                logger.warning("Email credentials not configured, skipping email send")
                 return False
-            
-            if not self.sender_email:
-                logger.warning("Sender email not configured, skipping email send")
-                return False
-            
+
             # Create message
-            message = MIMEText(email_content.html_body or email_content.body, 'html')
-            message['to'] = email_content.recipient_email
-            message['from'] = self.sender_email
-            message['subject'] = email_content.subject
-            
-            # Encode message
-            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-            
-            # Send message
-            send_message = {'raw': raw_message}
-            self.service.users().messages().send(
-                userId='me',
-                body=send_message
-            ).execute()
-            
-            logger.info(f"Email sent to {email_content.recipient_email}: {email_content.subject}")
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = email_content.subject
+            msg['From'] = f"{self.sender_name} <{self.sender_email}>"
+            msg['To'] = email_content.recipient_email
+
+            # Add plain text and HTML parts
+            part1 = MIMEText(email_content.body, 'plain')
+            part2 = MIMEText(email_content.html_body or email_content.body, 'html')
+
+            msg.attach(part1)
+            msg.attach(part2)
+
+            # Send via Gmail SMTP
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                server.login(self.sender_email, self.sender_password)
+                server.send_message(msg)
+
+            logger.info(f"✓ Email sent to {email_content.recipient_email}: {email_content.subject}")
             return True
-        
-        except HttpError as e:
-            logger.error(f"HTTP error sending email: {e}")
+
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"SMTP Authentication failed - check GMAIL_APP_PASSWORD: {e}")
+            return False
+        except smtplib.SMTPException as e:
+            logger.error(f"SMTP error sending email: {e}")
             return False
         except Exception as e:
             logger.error(f"Error sending email: {e}")

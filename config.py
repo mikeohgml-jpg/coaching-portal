@@ -31,9 +31,11 @@ class Config:
     # Cache configuration
     CLIENT_CACHE_TTL = 30  # 30 seconds (reduced for frequent updates)
     
-    # Email configuration
+    # Email configuration (SMTP)
     GMAIL_SENDER_EMAIL = os.getenv("GMAIL_SENDER_EMAIL")
-    
+    GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+    GMAIL_SENDER_NAME = os.getenv("GMAIL_SENDER_NAME", "Michael Oh")
+
     # CORS configuration
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
 
