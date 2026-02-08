@@ -15,19 +15,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Credentials - enforce strong credentials in production
-FLASK_ENV = os.getenv('FLASK_ENV', 'development')
-if FLASK_ENV == 'production':
-    ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
-    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
-    if not ADMIN_USERNAME or not ADMIN_PASSWORD:
-        raise ValueError("ADMIN_USERNAME and ADMIN_PASSWORD must be set in production")
-    if ADMIN_PASSWORD == 'coaching123' or len(ADMIN_PASSWORD) < 8:
-        raise ValueError("ADMIN_PASSWORD is too weak for production")
-else:
-    # Development defaults
-    ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
-    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'coaching123')
+def get_admin_credentials():
+    """Get admin credentials based on environment."""
+    flask_env = os.getenv('FLASK_ENV', 'development')
+
+    if flask_env == 'production':
+        username = os.getenv('ADMIN_USERNAME')
+        password = os.getenv('ADMIN_PASSWORD')
+
+        if not username or not password:
+            raise ValueError("ADMIN_USERNAME and ADMIN_PASSWORD must be set in production")
+        if password == 'coaching123' or len(password) < 8:
+            raise ValueError("ADMIN_PASSWORD is too weak for production")
+
+        return username, password
+    else:
+        # Development defaults
+        return os.getenv('ADMIN_USERNAME', 'admin'), os.getenv('ADMIN_PASSWORD', 'coaching123')
+
+# Initialize credentials
+ADMIN_USERNAME, ADMIN_PASSWORD = get_admin_credentials()
 
 def login_required(f):
     """Decorator to require login."""
