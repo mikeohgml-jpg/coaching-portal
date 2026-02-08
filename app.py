@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 def get_admin_credentials():
     """Get admin credentials - called at request time."""
-    # Check if we have production credentials set
-    username = os.getenv('ADMIN_USERNAME')
-    password = os.getenv('ADMIN_PASSWORD')
+    # Check if we have production credentials set (strip whitespace/newlines)
+    username = os.getenv('ADMIN_USERNAME', '').strip()
+    password = os.getenv('ADMIN_PASSWORD', '').strip()
 
     # If both are set and password is strong, use them (production)
     if username and password and password != 'coaching123' and len(password) >= 8:
