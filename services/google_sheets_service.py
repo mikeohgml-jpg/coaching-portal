@@ -21,7 +21,8 @@ class GoogleSheetsService:
     
     def __init__(self):
         """Initialize Google Sheets service."""
-        self.sheets_id = Config.GOOGLE_SHEETS_ID
+        self.clients_sheet_id = Config.GOOGLE_CLIENTS_SHEET_ID
+        self.sessions_sheet_id = Config.GOOGLE_SESSIONS_SHEET_ID
         self.credentials = None
         self.service = None
         self.client_cache = {}
@@ -36,23 +37,37 @@ class GoogleSheetsService:
     
     def _initialize_service(self):
         """Initialize Google Sheets API client."""
-        credentials_path = Config.GOOGLE_CREDENTIALS_JSON
-        
-        if not credentials_path:
+        credentials_data = Config.GOOGLE_CREDENTIALS_JSON
+
+        if not credentials_data:
             raise ValueError("GOOGLE_CREDENTIALS_JSON not configured")
-        
-        if not os.path.exists(credentials_path):
-            raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
-        
-        # Load service account credentials
-        self.credentials = service_account.Credentials.from_service_account_file(
-            credentials_path,
-            scopes=[
-                'https://www.googleapis.com/auth/spreadsheets',
-                'https://www.googleapis.com/auth/drive'
-            ]
-        )
-        
+
+        scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
+
+        # Check if credentials_data is a file path or JSON string
+        if os.path.exists(credentials_data):
+            # Load from file (local development)
+            logger.info("Loading credentials from file")
+            self.credentials = service_account.Credentials.from_service_account_file(
+                credentials_data,
+                scopes=scopes
+            )
+        else:
+            # Parse as JSON string (Vercel deployment)
+            logger.info("Loading credentials from JSON string")
+            try:
+                import json
+                credentials_info = json.loads(credentials_data)
+                self.credentials = service_account.Credentials.from_service_account_info(
+                    credentials_info,
+                    scopes=scopes
+                )
+            except json.JSONDecodeError as e:
+                raise ValueError(f"Invalid GOOGLE_CREDENTIALS_JSON format: {e}")
+
         # Build the Sheets API service
         self.service = build('sheets', 'v4', credentials=self.credentials)
     
@@ -74,8 +89,8 @@ class GoogleSheetsService:
             
             # Read from Clients sheet
             result = self.service.spreadsheets().values().get(
-                spreadsheetId=self.sheets_id,
-                range='Clients!A:H'
+                spreadsheetId=self.clients_sheet_id,
+                range='A:M'
             ).execute()
             
             values = result.get('values', [])
@@ -89,18 +104,32 @@ class GoogleSheetsService:
             clients = []
             
             for row in values[1:]:
-                if len(row) >= 8:
-                    client = {
-                        "name": row[0],
-                        "email": row[1],
-                        "package_type": row[2],
-                        "start_date": row[3],
-                        "end_date": row[4],
-                        "amount_paid": float(row[5]) if row[5] else 0.0,
-                        "created_at": row[6],
-                        "notes": row[7] if len(row) > 7 else ""
-                    }
+                # Skip empty rows
+                if not row or not row[0]:
+                    continue
+                
+                # Parse columns based on actual sheet structure:
+                # A:Client ID, B:Name, C:Address, D:Contact, E:Email, F:Package, G:Start, H:End, I:Amount, J:Contract, K:Invoice, L:Created At, M:Notes
+                client = {
+                    "client_id": row[0] if len(row) > 0 else "",
+                    "name": row[1] if len(row) > 1 else "",
+                    "address": row[2] if len(row) > 2 else "",
+                    "contact": row[3] if len(row) > 3 else "",
+                    "email": row[4] if len(row) > 4 else "",
+                    "package_type": row[5] if len(row) > 5 else "",
+                    "start_date": row[6] if len(row) > 6 else "",
+                    "end_date": row[7] if len(row) > 7 else "",
+                    "amount_paid": float(row[8]) if len(row) > 8 and row[8] else 0.0,
+                    "contract_number": row[9] if len(row) > 9 else "",
+                    "invoice_number": row[10] if len(row) > 10 else "",
+                    "created_at": row[11] if len(row) > 11 else "",
+                    "notes": row[12] if len(row) > 12 else ""
+                }
+                
+                # Only add if client_id exists
+                if client["client_id"]:
                     clients.append(client)
+                    logger.debug(f"Added client: {client['name']}")
             
             # Update cache
             self.client_cache = clients
@@ -116,25 +145,85 @@ class GoogleSheetsService:
             logger.error(f"Error fetching clients: {e}")
             raise
     
+    def get_max_contract_number(self) -> str:
+        """Find the highest contract number in Clients sheet and increment by 1."""
+        try:
+            from datetime import datetime
+            current_year = datetime.utcnow().year
+            max_contract_num = 0
+            
+            # Read from Clients sheet (Column J - Contract Number)
+            result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.clients_sheet_id,
+                range='J:J'
+            ).execute()
+            
+            values = result.get('values', [])
+            # Skip header row and extract contract numbers for current year
+            for row in values[1:]:
+                if row and row[0]:
+                    contract = row[0]
+                    if contract and isinstance(contract, str):
+                        # Extract numeric part from CT-YYYY-### format
+                        parts = contract.split('-')
+                        if len(parts) >= 3:
+                            try:
+                                year = int(parts[1])
+                                num = int(parts[2])
+                                # Only count contracts from current year
+                                if year == current_year:
+                                    max_contract_num = max(max_contract_num, num)
+                            except ValueError:
+                                pass
+            
+            # Increment by 1 and format
+            next_num = max_contract_num + 1
+            new_contract = f"CT-{current_year}-{str(next_num).zfill(3)}"
+            logger.info(f"Generated next contract number: {new_contract} (max found was: {max_contract_num})")
+            return new_contract
+        
+        except Exception as e:
+            logger.error(f"Error getting max contract number: {e}")
+            # Return a default if there's any error
+            from datetime import datetime
+            current_year = datetime.utcnow().year
+            return f"CT-{current_year}-001"
+    
     def add_new_client(self, client_data: Dict[str, Any]) -> str:
         """Add a new client to the Clients sheet."""
         try:
-            # Prepare row data
+            # Generate Client ID (using current timestamp-based unique ID)
+            import uuid
+            client_id = f"CL-{uuid.uuid4().hex[:8].upper()}"
+            
+            # Auto-generate Contract Number
+            contract_number = self.get_max_contract_number()
+            
+            # Auto-generate Invoice Number (take largest from both sheets)
+            invoice_number = self.get_max_invoice_number()
+            
+            # Prepare row data in correct column order (matching actual sheet structure):
+            # A:Client ID, B:Name, C:Address, D:Contact, E:Email, F:Package, G:Start, H:End, I:Amount, J:Contract, K:Invoice, L:Created At, M:Notes
             row = [
-                client_data.get("name", ""),
-                client_data.get("email", ""),
-                client_data.get("package_type", ""),
-                client_data.get("start_date", ""),
-                client_data.get("end_date", ""),
-                str(client_data.get("amount_paid", 0)),
-                datetime.utcnow().isoformat(),
-                client_data.get("notes", "")
+                client_id,                              # A: Client ID
+                client_data.get("name", ""),           # B: Name
+                client_data.get("address", ""),        # C: Address
+                client_data.get("contact", ""),        # D: Contact
+                client_data.get("email", ""),          # E: Email
+                client_data.get("package_type", ""),   # F: Package Type
+                client_data.get("start_date", ""),     # G: Start Date
+                client_data.get("end_date", ""),       # H: End Date
+                str(client_data.get("amount_paid", 0)), # I: Amount Paid
+                contract_number,                        # J: Contract Number (auto-generated)
+                invoice_number,                         # K: Invoice Number (auto-generated from max across both sheets)
+                datetime.utcnow().isoformat(),         # L: Created At
+                client_data.get("notes", "")           # M: Notes
             ]
             
             # Append to Clients sheet
             result = self.service.spreadsheets().values().append(
-                spreadsheetId=self.sheets_id,
-                range='Clients!A:H',
+                spreadsheetId=self.clients_sheet_id,
+                range='A:M',
                 valueInputOption='USER_ENTERED',
                 body={'values': [row]}
             ).execute()
@@ -155,30 +244,124 @@ class GoogleSheetsService:
             logger.error(f"Error adding client: {e}")
             raise
     
+    def get_max_invoice_number(self) -> str:
+        """Find the highest INVOICE NUMBER in Clients sheet (INV-5XXX format) and increment by 1."""
+        try:
+            import re
+            max_invoice_num = 0
+            
+            # Read from Clients sheet (Column K - Invoice Number) to find max for INV-5XXX format
+            clients_result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.clients_sheet_id,
+                range='K:K'
+            ).execute()
+            
+            clients_values = clients_result.get('values', [])
+            logger.info(f"Checking Clients sheet for INV-5XXX invoices...")
+            
+            for row in clients_values[1:]:  # Skip header
+                if row and row[0]:
+                    invoice = row[0].strip()
+                    if invoice and isinstance(invoice, str):
+                        # Extract numeric part from INV-5XXX format
+                        match = re.search(r'INV-5(\d+)', invoice, re.IGNORECASE)
+                        if match:
+                            try:
+                                num = int(match.group(1))
+                                max_invoice_num = max(max_invoice_num, num)
+                                logger.debug(f"Clients: {invoice} → {num}")
+                            except ValueError:
+                                pass
+            
+            # Increment by 1 and format as INV-5XXX
+            next_num = max_invoice_num + 1
+            new_invoice = f"INV-5{str(next_num).zfill(3)}"
+            logger.info(f"Generated next CLIENT invoice number: {new_invoice} (max found: {max_invoice_num})")
+            return new_invoice
+        
+        except Exception as e:
+            logger.error(f"Error getting max invoice number: {e}")
+            # Return a default if there's any error
+            return "INV-5001"
+    
+    def get_max_session_invoice_number(self) -> str:
+        """Find the highest invoice number in Sessions sheet (INV-001 format) and increment by 1."""
+        try:
+            import re
+            max_invoice_num = 0
+            
+            # Read from Sessions sheet (Column H - Invoice Number) for INV-001 format
+            sessions_result = self.service.spreadsheets().values().get(
+                spreadsheetId=self.sessions_sheet_id,
+                range='H:H'
+            ).execute()
+            
+            sessions_values = sessions_result.get('values', [])
+            logger.info(f"Checking Sessions sheet for INV-001 invoices...")
+            
+            for row in sessions_values[1:]:  # Skip header
+                if row and row[0]:
+                    invoice = row[0].strip()
+                    if invoice and isinstance(invoice, str):
+                        # Extract numeric part from both INV-### and INV-5### formats for backward compatibility
+                        match = re.search(r'INV-?(\d+)', invoice, re.IGNORECASE)
+                        if match:
+                            try:
+                                num = int(match.group(1))
+                                # If it's in INV-5 format, extract just the number part
+                                if num > 999:
+                                    num = num % 1000
+                                max_invoice_num = max(max_invoice_num, num)
+                                logger.debug(f"Sessions: {invoice} → {num}")
+                            except ValueError:
+                                pass
+            
+            # Increment by 1 and format as INV-001
+            next_num = max_invoice_num + 1
+            new_invoice = f"INV-{str(next_num).zfill(3)}"
+            logger.info(f"Generated next SESSION invoice number: {new_invoice} (max found: {max_invoice_num})")
+            return new_invoice
+        
+        except Exception as e:
+            logger.error(f"Error getting max session invoice number: {e}")
+            # Return a default if there's any error
+            return "INV-001"
+    
     def add_session(self, session_data: Dict[str, Any]) -> str:
         """Add a coaching session to the Sessions sheet."""
         try:
-            # Prepare row data
+            # Get client ID and contract number from selected client
+            client_name = session_data.get("client_name", "")
+            client = self.get_client_by_name(client_name)
+            client_id = client.get("client_id", "") if client else ""
+            contract_number = client.get("contract_number", "") if client else ""
+            
+            # Auto-generate invoice number for session (INV-001 format)
+            invoice_number = self.get_max_session_invoice_number()
+            
+            # Prepare row data in order: A:Client ID, B:Client Name, C:Coaching Type, D:Hours, E:Amount, F:Date, G:Contract#, H:Invoice#, I:Created At, J:Notes
             row = [
-                session_data.get("client_name", ""),
-                session_data.get("coaching_type", ""),
-                str(session_data.get("participant_count", 1)),
-                str(session_data.get("coaching_hours", 0)),
-                str(session_data.get("amount_collected", 0)),
-                session_data.get("session_date", ""),
-                datetime.utcnow().isoformat(),
-                session_data.get("notes", "")
+                client_id,                              # A: Client ID
+                session_data.get("client_name", ""),   # B: Client Name
+                session_data.get("coaching_type", ""), # C: Coaching Type
+                str(session_data.get("coaching_hours", 0)), # D: Coaching Hours
+                str(session_data.get("amount_collected", 0)), # E: Amount Collected
+                session_data.get("session_date", ""),  # F: Session Date
+                contract_number,                        # G: Contract Number
+                invoice_number,                         # H: Invoice Number
+                datetime.utcnow().isoformat(),         # I: Created At
+                session_data.get("notes", "")          # J: Notes
             ]
             
-            # Append to Sessions sheet
+            # Append to Sessions sheet (now with Client ID in new structure)
             result = self.service.spreadsheets().values().append(
-                spreadsheetId=self.sheets_id,
-                range='Sessions!A:H',
+                spreadsheetId=self.sessions_sheet_id,
+                range='A:J',
                 valueInputOption='USER_ENTERED',
                 body={'values': [row]}
             ).execute()
             
-            logger.info(f"Session added for client: {session_data.get('client_name')}")
+            logger.info(f"Session added for client: {client_name} with invoice: {invoice_number}")
             return result.get('updates', {}).get('updatedRange', '')
         
         except HttpError as e:
@@ -189,13 +372,15 @@ class GoogleSheetsService:
             raise
     
     def check_duplicate_client(self, name: str, email: str) -> Optional[Dict[str, Any]]:
-        """Check if a client already exists by name or email."""
+        """Check if a client already exists by email only (emails must be unique)."""
         try:
             clients = self.get_all_clients()
             
+            # Only check email for duplicates since emails should be globally unique
+            # But allow multiple people with the same name
             for client in clients:
-                if (client.get("name", "").lower() == name.lower() or 
-                    client.get("email", "").lower() == email.lower()):
+                if client.get("email", "").lower() == email.lower():
+                    logger.info(f"Found duplicate email: {email} (client: {client.get('name')})")
                     return client
             
             return None
@@ -224,8 +409,8 @@ class GoogleSheetsService:
         try:
             # Read from Sessions sheet
             result = self.service.spreadsheets().values().get(
-                spreadsheetId=self.sheets_id,
-                range='Sessions!A:H'
+                spreadsheetId=self.sessions_sheet_id,
+                range='A:J'
             ).execute()
             
             values = result.get('values', [])
@@ -238,16 +423,19 @@ class GoogleSheetsService:
             sessions = []
             
             for row in values[1:]:
-                if len(row) >= 8 and row[0].lower() == client_name.lower():
+                # Match by client name (column B, index 1)
+                if len(row) >= 6 and row[1].lower() == client_name.lower():
                     session = {
-                        "client_name": row[0],
-                        "coaching_type": row[1],
-                        "participant_count": int(row[2]) if row[2] else 1,
+                        "client_id": row[0],
+                        "client_name": row[1],
+                        "coaching_type": row[2],
                         "coaching_hours": float(row[3]) if row[3] else 0.0,
                         "amount_collected": float(row[4]) if row[4] else 0.0,
                         "session_date": row[5],
-                        "created_at": row[6],
-                        "notes": row[7] if len(row) > 7 else ""
+                        "contract_number": row[6] if len(row) > 6 else "",
+                        "invoice_number": row[7] if len(row) > 7 else "",
+                        "created_at": row[8] if len(row) > 8 else "",
+                        "notes": row[9] if len(row) > 9 else ""
                     }
                     sessions.append(session)
             
@@ -269,10 +457,10 @@ class GoogleSheetsService:
             # Find the row number
             for idx, client in enumerate(clients, start=2):  # Start at 2 (skip header)
                 if client.get("name", "").lower() == client_name.lower():
-                    # Update the end date
+                    # Update the end date (Column F in new structure)
                     self.service.spreadsheets().values().update(
-                        spreadsheetId=self.sheets_id,
-                        range=f'Clients!E{idx}',
+                        spreadsheetId=self.clients_sheet_id,
+                        range=f'F{idx}',
                         valueInputOption='USER_ENTERED',
                         body={'values': [[new_end_date]]}
                     ).execute()
@@ -292,4 +480,43 @@ class GoogleSheetsService:
             raise
         except Exception as e:
             logger.error(f"Error updating client: {e}")
+            raise
+    
+    def delete_rows(self, start_row: int, end_row: int) -> bool:
+        """Delete rows from the Clients sheet (1-indexed)."""
+        try:
+            # Convert to 0-indexed for API
+            start_index = start_row - 1
+            end_index = end_row
+            
+            request = self.service.spreadsheets().batchUpdate(
+                spreadsheetId=self.clients_sheet_id,
+                body={
+                    'requests': [
+                        {
+                            'deleteDimension': {
+                                'range': {
+                                    'sheetId': 0,  # Sheet1 (Clients sheet)
+                                    'dimension': 'ROWS',
+                                    'startIndex': start_index,
+                                    'endIndex': end_index
+                                }
+                            }
+                        }
+                    ]
+                }
+            ).execute()
+            
+            # Invalidate cache
+            self.client_cache = {}
+            self.cache_timestamp = None
+            
+            logger.info(f"Deleted rows {start_row}-{end_row} from sheet")
+            return True
+        
+        except HttpError as e:
+            logger.error(f"HTTP error deleting rows: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error deleting rows: {e}")
             raise

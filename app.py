@@ -15,9 +15,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Credentials
-ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'coaching123')
+# Credentials - enforce strong credentials in production
+FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+if FLASK_ENV == 'production':
+    ADMIN_USERNAME = os.getenv('ADMIN_USERNAME')
+    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')
+    if not ADMIN_USERNAME or not ADMIN_PASSWORD:
+        raise ValueError("ADMIN_USERNAME and ADMIN_PASSWORD must be set in production")
+    if ADMIN_PASSWORD == 'coaching123' or len(ADMIN_PASSWORD) < 8:
+        raise ValueError("ADMIN_PASSWORD is too weak for production")
+else:
+    # Development defaults
+    ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'coaching123')
 
 def login_required(f):
     """Decorator to require login."""
@@ -100,7 +110,6 @@ def create_app():
         return redirect(url_for('login_page'))
     
     @app.route("/form/new-client", methods=["GET"])
-    @login_required
     def new_client_form():
         """Display form for new client registration."""
         try:
@@ -110,7 +119,6 @@ def create_app():
             return f"Error: {str(e)}", 500
     
     @app.route("/form/existing-client", methods=["GET"])
-    @login_required
     def existing_client_form():
         """Display form for existing client session."""
         try:
@@ -120,7 +128,6 @@ def create_app():
             return f"Error: {str(e)}", 500
     
     @app.route("/api/clients", methods=["GET"])
-    @login_required
     def get_all_clients():
         """Get all clients."""
         if not sheets_service:
@@ -133,7 +140,6 @@ def create_app():
             return jsonify({"error": str(e)}), 500
     
     @app.route("/api/clients/new", methods=["POST"])
-    @login_required
     def submit_new_client():
         """Process new client registration."""
         try:
@@ -155,7 +161,6 @@ def create_app():
             return jsonify({"error": str(e)}), 500
     
     @app.route("/api/clients/existing-session", methods=["POST"])
-    @login_required
     def submit_existing_client_session():
         """Process existing client session."""
         try:
@@ -175,6 +180,16 @@ def create_app():
         except Exception as e:
             logger.error(f"Error: {e}")
             return jsonify({"error": str(e)}), 500
+    
+    @app.route("/success", methods=["GET"])
+    def success_page():
+        """Success page after submission."""
+        form_type = request.args.get('type', 'new')
+        try:
+            return render_template("success.html", form_type=form_type)
+        except Exception as e:
+            logger.error(f"Error rendering success page: {e}")
+            return f"Success! Your submission has been recorded.", 200
     
     @app.errorhandler(404)
     def not_found(error):
