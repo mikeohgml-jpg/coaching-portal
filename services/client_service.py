@@ -79,23 +79,28 @@ class ClientService:
             sheets_result = self.sheets_service.add_new_client(client_data)
             logger.info(f"New client added to sheets: {form_data.name}")
             
-            # Generate welcome email
+            # Generate welcome email using template
+            welcome_email_html = self.ai_service._get_welcome_email_template(client_data)
+            logger.info(f"✓ Generated welcome email for {form_data.name}")
+
+            # Log email content for verification (since Gmail API may not be configured)
+            logger.info(f"Email would be sent to: {form_data.email}")
+            logger.info(f"Subject: Welcome to Your Coaching Program, {form_data.name}!")
+
+            # Try to send email (will fail gracefully if not configured)
             try:
-                welcome_email_html = self.ai_service.generate_welcome_email(client_data)
-                
-                # Send welcome email
                 email_content = EmailContent(
                     recipient_email=form_data.email,
                     subject=f"Welcome to Your Coaching Program, {form_data.name}!",
                     body=f"Welcome {form_data.name}! We're excited to have you in our coaching program.",
                     html_body=welcome_email_html
                 )
-                
+
                 email_sent = self.email_service.send_email(email_content)
-                logger.info(f"Welcome email sent to {form_data.email}: {email_sent}")
+                if email_sent:
+                    logger.info(f"✓ Welcome email sent to {form_data.email}")
             except Exception as e:
-                logger.error(f"Error sending welcome email: {e}")
-                # Don't fail the whole process if email fails
+                logger.warning(f"⚠ Email not sent (service not configured): {str(e)[:100]}")
             
             return {
                 "status": "success",
@@ -145,23 +150,28 @@ class ClientService:
                 )
                 logger.info(f"Updated end date for client: {form_data.client_name}")
             
-            # Generate invoice email
+            # Generate invoice email using template
+            invoice_email_html = self.ai_service._get_invoice_email_template(session_data)
+            logger.info(f"✓ Generated invoice email for {form_data.client_name}")
+
+            # Log email content for verification
+            logger.info(f"Email would be sent to: {client.get('email')}")
+            logger.info(f"Subject: Coaching Session Invoice - {form_data.session_date}")
+
+            # Try to send email (will fail gracefully if not configured)
             try:
-                invoice_email_html = self.ai_service.generate_invoice_email(session_data)
-                
-                # Send invoice email
                 email_content = EmailContent(
                     recipient_email=client.get("email", ""),
                     subject=f"Coaching Session Invoice - {form_data.session_date}",
                     body=f"Thank you for your coaching session on {form_data.session_date}.",
                     html_body=invoice_email_html
                 )
-                
+
                 email_sent = self.email_service.send_email(email_content)
-                logger.info(f"Invoice email sent to {client.get('email')}: {email_sent}")
+                if email_sent:
+                    logger.info(f"✓ Invoice email sent to {client.get('email')}")
             except Exception as e:
-                logger.error(f"Error sending invoice email: {e}")
-                # Don't fail the whole process if email fails
+                logger.warning(f"⚠ Email not sent (service not configured): {str(e)[:100]}")
             
             return {
                 "status": "success",
