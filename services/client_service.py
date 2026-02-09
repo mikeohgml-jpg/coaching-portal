@@ -27,10 +27,14 @@ class ClientService:
     def validate_new_client_data(self, data: NewClientFormData) -> tuple[bool, str]:
         """Validate new client data."""
         try:
-            # Check for duplicate client
-            duplicate = self.sheets_service.check_duplicate_client(data.name, data.email)
-            if duplicate:
-                return False, f"A client with this name or email already exists"
+            # Check for duplicate client (with timeout protection)
+            try:
+                duplicate = self.sheets_service.check_duplicate_client(data.name, data.email)
+                if duplicate:
+                    return False, f"A client with this name or email already exists"
+            except Exception as check_error:
+                # If duplicate check fails, log warning but allow registration to proceed
+                logger.warning(f"Could not verify duplicate client (proceeding anyway): {check_error}")
             
             # All validation passed
             return True, "Validation successful"

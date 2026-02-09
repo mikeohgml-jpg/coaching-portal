@@ -374,21 +374,31 @@ class GoogleSheetsService:
     
     def check_duplicate_client(self, name: str, email: str) -> Optional[Dict[str, Any]]:
         """Check if a client already exists by email only (emails must be unique)."""
-        try:
-            clients = self.get_all_clients()
-            
-            # Only check email for duplicates since emails should be globally unique
-            # But allow multiple people with the same name
-            for client in clients:
-                if client.get("email", "").lower() == email.lower():
-                    logger.info(f"Found duplicate email: {email} (client: {client.get('name')})")
-                    return client
-            
-            return None
+        max_retries = 2
+        retry_count = 0
         
-        except Exception as e:
-            logger.error(f"Error checking duplicate client: {e}")
-            raise
+        while retry_count <= max_retries:
+            try:
+                clients = self.get_all_clients()
+                
+                # Only check email for duplicates since emails should be globally unique
+                # But allow multiple people with the same name
+                for client in clients:
+                    if client.get("email", "").lower() == email.lower():
+                        logger.info(f"Found duplicate email: {email} (client: {client.get('name')})")
+                        return client
+                
+                return None
+            
+            except Exception as e:
+                retry_count += 1
+                if retry_count > max_retries:
+                    logger.error(f"Error checking duplicate client after {max_retries} retries: {e}")
+                    raise
+                else:
+                    logger.warning(f"Retry {retry_count}/{max_retries} for duplicate check due to: {e}")
+                    import time
+                    time.sleep(0.5 * retry_count)  # Brief backoff
     
     def get_client_by_name(self, name: str) -> Optional[Dict[str, Any]]:
         """Get a specific client by name."""

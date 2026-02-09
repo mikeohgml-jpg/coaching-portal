@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Success - Coaching Portal{% endblock %}
+{% block title %}Success - Transform Coaching{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
@@ -8,7 +8,7 @@
         <div class="card border-success shadow-lg">
             <div class="card-header bg-success text-white text-center">
                 <h2 class="card-title mb-0">
-                    <i class="bi bi-check-circle"></i> Success!
+                    ✅ Success!
                 </h2>
             </div>
             <div class="card-body text-center p-5">
@@ -18,7 +18,7 @@
                 
                 {% if form_type == 'new' %}
                     <h3>Client Registered Successfully</h3>
-                    <p class="text-muted">A welcome email has been sent to the new client with program details and next steps.</p>
+                    <p style="color: rgba(255, 255, 255, 0.7);">A welcome email has been sent to the new client with program details and next steps.</p>
                     <div class="alert alert-info" role="alert">
                         <strong>What's Next?</strong>
                         <ul class="mt-2 mb-0 text-start">
@@ -29,7 +29,7 @@
                     </div>
                 {% elif form_type == 'existing' %}
                     <h3>Session Recorded Successfully</h3>
-                    <p class="text-muted">The coaching session has been recorded and an invoice email has been sent to the client.</p>
+                    <p style="color: rgba(255, 255, 255, 0.7);">The coaching session has been recorded and an invoice email has been sent to the client.</p>
                     <div class="alert alert-info" role="alert">
                         <strong>What's Next?</strong>
                         <ul class="mt-2 mb-0 text-start">
@@ -40,18 +40,18 @@
                     </div>
                 {% else %}
                     <h3>Operation Completed Successfully</h3>
-                    <p class="text-muted">Your submission has been processed successfully.</p>
+                    <p style="color: rgba(255, 255, 255, 0.7);">Your submission has been processed successfully.</p>
                 {% endif %}
 
                 <div class="d-grid gap-2 mt-4">
                     <a href="/form/new-client" class="btn btn-primary">
-                        <i class="bi bi-person-plus"></i> Register New Client
+                        ✨ Register New Client
                     </a>
                     <a href="/form/existing-client" class="btn btn-success">
-                        <i class="bi bi-calendar-check"></i> Record Session
+                        📊 Record Session
                     </a>
                     <a href="/" class="btn btn-secondary">
-                        <i class="bi bi-house"></i> Back to Home
+                        🏠 Back to Home
                     </a>
                 </div>
             </div>
