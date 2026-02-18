@@ -55,6 +55,23 @@
                     </div>
 
                     <div class="mb-3">
+                        <label for="participantCount" class="form-label">Number of Participants *</label>
+                        <input 
+                            type="number" 
+                            class="form-control" 
+                            id="participantCount" 
+                            name="participant_count" 
+                            placeholder="1"
+                            value="1"
+                            min="1"
+                            required>
+                        <small class="form-text text-muted">Number of people in the coaching session</small>
+                        <div class="invalid-feedback">
+                            Please provide a valid participant count.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
                         <label for="coachingHours" class="form-label">Coaching Hours *</label>
                         <input 
                             type="number" 
@@ -310,6 +327,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         const formData = {
             client_name: document.getElementById('clientName').value,
             coaching_type: document.getElementById('coachingType').value,
+            participant_count: parseInt(document.getElementById('participantCount').value),
             coaching_hours: parseFloat(document.getElementById('coachingHours').value),
             amount_collected: parseFloat(document.getElementById('amountCollected').value),
             session_date: document.getElementById('sessionDate').value,
