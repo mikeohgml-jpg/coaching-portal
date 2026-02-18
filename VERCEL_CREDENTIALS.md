@@ -4,11 +4,11 @@
 **https://coaching-portal-python.vercel.app**
 
 ## Admin Login Credentials
-- **Username**: `coachadmin`
-- **Password**: `CoachPortal2026!`
+- **Username**: `admin`
+- **Password**: `coaching123`
 
-⚠️ **UPDATED**: Credentials fixed - redeployed Feb 8, 2026 at 2:03 PM
-⚠️ **IMPORTANT**: Change these credentials after your first login for security!
+⚠️ **UPDATED**: Credentials changed to defaults - redeployed Feb 18, 2026
+⚠️ **IMPORTANT**: These are default credentials. Change them for production use!
 
 ---
 
