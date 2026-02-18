@@ -119,6 +119,13 @@ def create_app():
             logger.error(f"Error rendering existing client form: {e}")
             return f"Error: {str(e)}", 500
     
+    @app.route("/success", methods=["GET"])
+    @login_required
+    def success_page():
+        """Display success page after form submission."""
+        form_type = request.args.get('type', 'default')
+        return render_template("success.html", form_type=form_type)
+    
     @app.route("/api/clients", methods=["GET"])
     @login_required
     def get_all_clients():
