@@ -300,10 +300,10 @@ class GoogleSheetsService:
             import re
             max_invoice_num = 0
             
-            # Read from Sessions sheet (Column J - Invoice Number) for INV-001 format
+            # Read from Sessions sheet (Column K - Invoice Number) for INV-001 format
             sessions_result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.sessions_sheet_id,
-                range='J:J'
+                range='K:K'
             ).execute()
             
             sessions_values = sessions_result.get('values', [])
@@ -373,7 +373,7 @@ class GoogleSheetsService:
             # Prepare row data matching actual sheet columns:
             # A:Client ID, B:Client Name, C:Coaching Type, D:Coaching Hours,
             # E:Amount Paid ($), F:Amount Collected, G:Amount Balance,
-            # H:Session Date, I:Contract Number, J:Invoice Number, K:Created At, L:Notes
+            # H:Session Date, I:Payment Method, J:Contract Number, K:Invoice Number, L:Created At, M:Notes
             row = [
                 client_id,                              # A: Client ID
                 session_data.get("client_name", ""),   # B: Client Name
@@ -383,16 +383,17 @@ class GoogleSheetsService:
                 str(amount_collected),                  # F: Amount Collected - this session
                 str(remaining_balance),                 # G: Amount Balance - remaining after this session
                 session_data.get("session_date", ""),  # H: Session Date
-                contract_number,                        # I: Contract Number
-                invoice_number,                         # J: Invoice Number
-                datetime.utcnow().isoformat(),         # K: Created At
-                session_data.get("notes", "")          # L: Notes
+                payment_method,                         # I: Payment Method
+                contract_number,                        # J: Contract Number
+                invoice_number,                         # K: Invoice Number
+                datetime.utcnow().isoformat(),         # L: Created At
+                session_data.get("notes", "")          # M: Notes
             ]
             
             # Append to Sessions sheet
             result = self.service.spreadsheets().values().append(
                 spreadsheetId=self.sessions_sheet_id,
-                range='A:L',
+                range='A:M',
                 valueInputOption='USER_ENTERED',
                 body={'values': [row]}
             ).execute()
@@ -456,7 +457,7 @@ class GoogleSheetsService:
             # Read from Sessions sheet
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.sessions_sheet_id,
-                range='A:L'
+                range='A:M'
             ).execute()
             
             values = result.get('values', [])
@@ -468,7 +469,7 @@ class GoogleSheetsService:
             # Parse header and data rows
             # Actual columns: A:Client ID, B:Client Name, C:Coaching Type, D:Coaching Hours,
             # E:Amount Paid ($), F:Amount Collected, G:Amount Balance,
-            # H:Session Date, I:Contract Number, J:Invoice Number, K:Created At, L:Notes
+            # H:Session Date, I:Payment Method, J:Contract Number, K:Invoice Number, L:Created At, M:Notes
             sessions = []
             
             for row in values[1:]:
@@ -481,10 +482,11 @@ class GoogleSheetsService:
                         "coaching_hours": float(row[3]) if row[3] else 0.0,
                         "amount_collected": float(row[5]) if len(row) > 5 and row[5] else 0.0,
                         "session_date": row[7] if len(row) > 7 else "",
-                        "contract_number": row[8] if len(row) > 8 else "",
-                        "invoice_number": row[9] if len(row) > 9 else "",
-                        "created_at": row[10] if len(row) > 10 else "",
-                        "notes": row[11] if len(row) > 11 else ""
+                        "payment_method": row[8] if len(row) > 8 else "upfront_deposit",
+                        "contract_number": row[9] if len(row) > 9 else "",
+                        "invoice_number": row[10] if len(row) > 10 else "",
+                        "created_at": row[11] if len(row) > 11 else "",
+                        "notes": row[12] if len(row) > 12 else ""
                     }
                     sessions.append(session)
             
