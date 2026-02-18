@@ -15,20 +15,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def get_admin_credentials():
-    """Get admin credentials - called at request time."""
-    # Check if we have production credentials set (strip whitespace/newlines)
-    username = os.getenv('ADMIN_USERNAME', '').strip()
-    password = os.getenv('ADMIN_PASSWORD', '').strip()
-
-    # If both are set and password is strong, use them (production)
-    if username and password and password != 'coaching123' and len(password) >= 8:
-        logger.debug(f"Using production credentials for: {username}")
-        return username, password
-
-    # Otherwise use development defaults
-    logger.debug("Using development credentials")
-    return 'admin', 'coaching123'
+# Credentials
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'coaching123')
 
 def login_required(f):
     """Decorator to require login."""
@@ -94,20 +83,14 @@ def create_app():
         if request.method == 'POST':
             username = request.form.get('username')
             password = request.form.get('password')
-
-            # Get credentials at request time (not module load time)
-            admin_user, admin_pass = get_admin_credentials()
-            logger.info(f"Login attempt for user: {username}")
-
-            if username == admin_user and password == admin_pass:
+            
+            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
                 session['user_logged_in'] = True
                 session['username'] = username
-                logger.info(f"✓ Successful login for: {username}")
                 return redirect(url_for('new_client_form'))
             else:
-                logger.warning(f"✗ Failed login attempt for: {username}")
                 return render_template('login.html', error="Invalid credentials")
-
+        
         return render_template('login.html')
     
     @app.route("/logout")
@@ -117,6 +100,7 @@ def create_app():
         return redirect(url_for('login_page'))
     
     @app.route("/form/new-client", methods=["GET"])
+    @login_required
     def new_client_form():
         """Display form for new client registration."""
         try:
@@ -126,6 +110,7 @@ def create_app():
             return f"Error: {str(e)}", 500
     
     @app.route("/form/existing-client", methods=["GET"])
+    @login_required
     def existing_client_form():
         """Display form for existing client session."""
         try:
@@ -135,6 +120,7 @@ def create_app():
             return f"Error: {str(e)}", 500
     
     @app.route("/api/clients", methods=["GET"])
+    @login_required
     def get_all_clients():
         """Get all clients."""
         if not sheets_service:
@@ -146,36 +132,8 @@ def create_app():
             logger.error(f"Error: {e}")
             return jsonify({"error": str(e)}), 500
     
-    @app.route("/api/clients/<client_name>/balance", methods=["GET"])
-    def get_client_balance(client_name):
-        """Get client balance: package amount minus total collected from sessions."""
-        if not sheets_service:
-            return jsonify({"error": "Service not available"}), 503
-        try:
-            # Get client info for package amount
-            client = sheets_service.get_client_by_name(client_name)
-            if not client:
-                return jsonify({"error": "Client not found"}), 404
-            
-            total_package = float(client.get("amount_paid", 0))
-            
-            # Get session history to sum collected amounts
-            sessions = sheets_service.get_client_history(client_name)
-            total_collected = sum(float(s.get("amount_collected", 0)) for s in sessions)
-            remaining = total_package - total_collected
-            
-            return jsonify({
-                "status": "success",
-                "total_package": total_package,
-                "total_collected": total_collected,
-                "remaining_balance": remaining,
-                "session_count": len(sessions)
-            }), 200
-        except Exception as e:
-            logger.error(f"Error getting client balance: {e}")
-            return jsonify({"error": str(e)}), 500
-    
     @app.route("/api/clients/new", methods=["POST"])
+    @login_required
     def submit_new_client():
         """Process new client registration."""
         try:
@@ -197,6 +155,7 @@ def create_app():
             return jsonify({"error": str(e)}), 500
     
     @app.route("/api/clients/existing-session", methods=["POST"])
+    @login_required
     def submit_existing_client_session():
         """Process existing client session."""
         try:
@@ -217,16 +176,6 @@ def create_app():
             logger.error(f"Error: {e}")
             return jsonify({"error": str(e)}), 500
     
-    @app.route("/success", methods=["GET"])
-    def success_page():
-        """Success page after submission."""
-        form_type = request.args.get('type', 'new')
-        try:
-            return render_template("success.html", form_type=form_type)
-        except Exception as e:
-            logger.error(f"Error rendering success page: {e}")
-            return f"Success! Your submission has been recorded.", 200
-
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({"error": "Not found"}), 404
