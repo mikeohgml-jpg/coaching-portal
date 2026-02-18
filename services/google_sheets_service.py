@@ -48,6 +48,13 @@ class GoogleSheetsService:
             'https://www.googleapis.com/auth/drive'
         ]
 
+        # Resolve relative file paths against the project root (where config.py lives)
+        if credentials_data and not os.path.isabs(credentials_data) and not credentials_data.startswith('{'):
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            resolved_path = os.path.join(project_root, credentials_data)
+            if os.path.exists(resolved_path):
+                credentials_data = resolved_path
+
         # Check if credentials_data is a file path or JSON string
         if os.path.exists(credentials_data):
             # Load from file (local development)
@@ -291,10 +298,10 @@ class GoogleSheetsService:
             import re
             max_invoice_num = 0
             
-            # Read from Sessions sheet (Column H - Invoice Number) for INV-001 format
+            # Read from Sessions sheet (Column J - Invoice Number) for INV-001 format
             sessions_result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.sessions_sheet_id,
-                range='H:H'
+                range='J:J'
             ).execute()
             
             sessions_values = sessions_result.get('values', [])
@@ -337,27 +344,47 @@ class GoogleSheetsService:
             client_id = client.get("client_id", "") if client else ""
             contract_number = client.get("contract_number", "") if client else ""
             
+            # Get total package amount from client
+            total_package_amount = float(client.get("amount_paid", 0)) if client else 0.0
+            
             # Auto-generate invoice number for session (INV-001 format)
             invoice_number = self.get_max_session_invoice_number()
             
-            # Prepare row data in order: A:Client ID, B:Client Name, C:Coaching Type, D:Hours, E:Amount, F:Date, G:Contract#, H:Invoice#, I:Created At, J:Notes
+            # Calculate running balance
+            # Get all existing sessions for this client to sum up what's been collected so far
+            existing_sessions = self.get_client_history(client_name)
+            total_collected_so_far = sum(float(s.get("amount_collected", 0)) for s in existing_sessions)
+            
+            # Add this session's amount
+            amount_collected = float(session_data.get("amount_collected", 0))
+            new_total_collected = total_collected_so_far + amount_collected
+            
+            # Calculate remaining balance
+            remaining_balance = total_package_amount - new_total_collected
+            
+            # Prepare row data matching actual sheet columns:
+            # A:Client ID, B:Client Name, C:Coaching Type, D:Coaching Hours,
+            # E:Amount Paid ($), F:Amount Collected, G:Amount Balance,
+            # H:Session Date, I:Contract Number, J:Invoice Number, K:Created At, L:Notes
             row = [
                 client_id,                              # A: Client ID
                 session_data.get("client_name", ""),   # B: Client Name
                 session_data.get("coaching_type", ""), # C: Coaching Type
                 str(session_data.get("coaching_hours", 0)), # D: Coaching Hours
-                str(session_data.get("amount_collected", 0)), # E: Amount Collected
-                session_data.get("session_date", ""),  # F: Session Date
-                contract_number,                        # G: Contract Number
-                invoice_number,                         # H: Invoice Number
-                datetime.utcnow().isoformat(),         # I: Created At
-                session_data.get("notes", "")          # J: Notes
+                str(total_package_amount),              # E: Amount Paid ($) - client's total package
+                str(amount_collected),                  # F: Amount Collected - this session
+                str(remaining_balance),                 # G: Amount Balance - remaining after this session
+                session_data.get("session_date", ""),  # H: Session Date
+                contract_number,                        # I: Contract Number
+                invoice_number,                         # J: Invoice Number
+                datetime.utcnow().isoformat(),         # K: Created At
+                session_data.get("notes", "")          # L: Notes
             ]
             
-            # Append to Sessions sheet (now with Client ID in new structure)
+            # Append to Sessions sheet
             result = self.service.spreadsheets().values().append(
                 spreadsheetId=self.sessions_sheet_id,
-                range='A:J',
+                range='A:L',
                 valueInputOption='USER_ENTERED',
                 body={'values': [row]}
             ).execute()
@@ -421,7 +448,7 @@ class GoogleSheetsService:
             # Read from Sessions sheet
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.sessions_sheet_id,
-                range='A:J'
+                range='A:L'
             ).execute()
             
             values = result.get('values', [])
@@ -431,6 +458,9 @@ class GoogleSheetsService:
                 return []
             
             # Parse header and data rows
+            # Actual columns: A:Client ID, B:Client Name, C:Coaching Type, D:Coaching Hours,
+            # E:Amount Paid ($), F:Amount Collected, G:Amount Balance,
+            # H:Session Date, I:Contract Number, J:Invoice Number, K:Created At, L:Notes
             sessions = []
             
             for row in values[1:]:
@@ -441,12 +471,12 @@ class GoogleSheetsService:
                         "client_name": row[1],
                         "coaching_type": row[2],
                         "coaching_hours": float(row[3]) if row[3] else 0.0,
-                        "amount_collected": float(row[4]) if row[4] else 0.0,
-                        "session_date": row[5],
-                        "contract_number": row[6] if len(row) > 6 else "",
-                        "invoice_number": row[7] if len(row) > 7 else "",
-                        "created_at": row[8] if len(row) > 8 else "",
-                        "notes": row[9] if len(row) > 9 else ""
+                        "amount_collected": float(row[5]) if len(row) > 5 and row[5] else 0.0,
+                        "session_date": row[7] if len(row) > 7 else "",
+                        "contract_number": row[8] if len(row) > 8 else "",
+                        "invoice_number": row[9] if len(row) > 9 else "",
+                        "created_at": row[10] if len(row) > 10 else "",
+                        "notes": row[11] if len(row) > 11 else ""
                     }
                     sessions.append(session)
             

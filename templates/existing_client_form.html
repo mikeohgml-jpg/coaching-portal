@@ -28,7 +28,10 @@
                     <div id="clientInfo" class="alert alert-info d-none" role="alert">
                         <p><strong>Package:</strong> <span id="infoPackage"></span></p>
                         <p><strong>Period:</strong> <span id="infoPeriod"></span></p>
-                        <p class="mb-0"><strong>Email:</strong> <span id="infoEmail"></span></p>
+                        <p><strong>Email:</strong> <span id="infoEmail"></span></p>
+                        <p class="mb-0"><strong>Balance:</strong> <span id="infoBalance" class="fw-bold"></span>
+                            <span id="balanceSpinner" class="spinner-border spinner-border-sm ms-2 d-none" role="status"></span>
+                        </p>
                     </div>
 
                     <div class="mb-3">
@@ -200,7 +203,48 @@ function showClientInfo(client) {
     document.getElementById('infoPackage').textContent = client.package_type;
     document.getElementById('infoPeriod').textContent = `${client.start_date} to ${client.end_date}`;
     document.getElementById('infoEmail').textContent = client.email;
+    
+    // Show balance with loading state
+    const balanceEl = document.getElementById('infoBalance');
+    const balanceSpinner = document.getElementById('balanceSpinner');
+    balanceEl.textContent = '';
+    balanceSpinner.classList.remove('d-none');
     info.classList.remove('d-none');
+    
+    // Fetch session history to calculate remaining balance
+    loadClientBalance(client, balanceEl, balanceSpinner);
+}
+
+async function loadClientBalance(client, balanceEl, balanceSpinner) {
+    try {
+        const response = await fetch(`/api/clients/${encodeURIComponent(client.name)}/balance`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            const totalPaid = data.total_package;
+            const totalCollected = data.total_collected;
+            const remaining = data.remaining_balance;
+            
+            balanceEl.textContent = `$${remaining.toFixed(2)} remaining`;
+            balanceEl.title = `Package: $${totalPaid.toFixed(2)} | Collected: $${totalCollected.toFixed(2)}`;
+            
+            if (remaining <= 0) {
+                balanceEl.className = 'fw-bold text-danger';
+                balanceEl.textContent = `$${remaining.toFixed(2)} (Fully collected)`;
+            } else {
+                balanceEl.className = 'fw-bold text-success';
+            }
+        } else {
+            balanceEl.textContent = `$${client.amount_paid.toFixed(2)} (package total)`;
+            balanceEl.className = 'fw-bold';
+        }
+    } catch (error) {
+        console.error('Error loading balance:', error);
+        balanceEl.textContent = `$${client.amount_paid.toFixed(2)} (package total)`;
+        balanceEl.className = 'fw-bold';
+    } finally {
+        balanceSpinner.classList.add('d-none');
+    }
 }
 
 function hideClientInfo() {

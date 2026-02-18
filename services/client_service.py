@@ -121,6 +121,90 @@ class ClientService:
             logger.error(f"Error processing new client registration: {e}")
             raise
     
+    def _generate_invoice_email_html(self, session_data: Dict[str, Any]) -> str:
+        """Generate hardcoded invoice email HTML template."""
+        name = session_data.get('client_name', 'Valued Client')
+        coaching_type = session_data.get('coaching_type', 'Coaching Session')
+        session_date = session_data.get('session_date', '')
+        hours = session_data.get('coaching_hours', 0)
+        amount = session_data.get('amount_collected', 0)
+        notes = session_data.get('notes', '')
+        
+        # Balance information (if provided)
+        total_package = session_data.get('total_package', 0)
+        total_collected = session_data.get('total_collected', 0)
+        remaining_balance = session_data.get('remaining_balance', 0)
+        
+        return f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background-color: #28a745; color: white; padding: 20px; text-align: center; border-radius: 5px; }}
+                .content {{ padding: 20px 0; }}
+                .invoice-table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+                .invoice-table th, .invoice-table td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
+                .invoice-table th {{ background-color: #f5f5f5; }}
+                .total-row {{ font-weight: bold; background-color: #f5f5f5; }}
+                .balance-row {{ font-weight: bold; background-color: #e8f5e9; }}
+                .footer {{ text-align: center; color: #999; font-size: 12px; margin-top: 30px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Session Invoice</h1>
+                </div>
+                <div class="content">
+                    <p>Hello {name},</p>
+                    <p>Thank you for completing your coaching session. Here's the summary:</p>
+                    <table class="invoice-table">
+                        <tr>
+                            <th>Description</th>
+                            <th>Details</th>
+                        </tr>
+                        <tr>
+                            <td>Coaching Type</td>
+                            <td>{coaching_type}</td>
+                        </tr>
+                        <tr>
+                            <td>Session Date</td>
+                            <td>{session_date}</td>
+                        </tr>
+                        <tr>
+                            <td>Hours</td>
+                            <td>{hours}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td>Amount Collected</td>
+                            <td>${amount:.2f}</td>
+                        </tr>
+                        <tr>
+                            <td>Package Total</td>
+                            <td>${total_package:.2f}</td>
+                        </tr>
+                        <tr>
+                            <td>Total Collected to Date</td>
+                            <td>${total_collected:.2f}</td>
+                        </tr>
+                        <tr class="balance-row">
+                            <td>Remaining Balance</td>
+                            <td>${remaining_balance:.2f}</td>
+                        </tr>
+                    </table>
+                    {f'<p><strong>Notes:</strong> {notes}</p>' if notes else ''}
+                    <p>Thank you for your investment in your growth and development!</p>
+                    <p>Best regards,<br>The Coaching Team</p>
+                </div>
+                <div class="footer">
+                    <p>This email was sent in response to your coaching session.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+    
     def process_existing_client_session(self, form_data: ExistingClientFormData) -> Dict[str, Any]:
         """Process an existing client coaching session."""
         try:
@@ -146,6 +230,17 @@ class ClientService:
             sheets_result = self.sheets_service.add_session(session_data)
             logger.info(f"Session added for client: {form_data.client_name}")
             
+            # Calculate balance information for invoice email
+            total_package = float(client.get('amount_paid', 0))
+            sessions = self.sheets_service.get_client_history(form_data.client_name)
+            total_collected = sum(float(s.get('amount_collected', 0)) for s in sessions)
+            remaining_balance = total_package - total_collected
+            
+            # Add balance info to session data for email
+            session_data['total_package'] = total_package
+            session_data['total_collected'] = total_collected
+            session_data['remaining_balance'] = remaining_balance
+            
             # Update client end date if provided
             if form_data.new_end_date:
                 self.sheets_service.update_client_end_date(
@@ -154,8 +249,8 @@ class ClientService:
                 )
                 logger.info(f"Updated end date for client: {form_data.client_name}")
             
-            # Generate invoice email using template
-            invoice_email_html = self.ai_service._get_invoice_email_template(session_data)
+            # Generate invoice email using hardcoded template
+            invoice_email_html = self._generate_invoice_email_html(session_data)
             logger.info(f"✓ Generated invoice email for {form_data.client_name}")
 
             # Log email content for verification

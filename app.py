@@ -146,6 +146,35 @@ def create_app():
             logger.error(f"Error: {e}")
             return jsonify({"error": str(e)}), 500
     
+    @app.route("/api/clients/<client_name>/balance", methods=["GET"])
+    def get_client_balance(client_name):
+        """Get client balance: package amount minus total collected from sessions."""
+        if not sheets_service:
+            return jsonify({"error": "Service not available"}), 503
+        try:
+            # Get client info for package amount
+            client = sheets_service.get_client_by_name(client_name)
+            if not client:
+                return jsonify({"error": "Client not found"}), 404
+            
+            total_package = float(client.get("amount_paid", 0))
+            
+            # Get session history to sum collected amounts
+            sessions = sheets_service.get_client_history(client_name)
+            total_collected = sum(float(s.get("amount_collected", 0)) for s in sessions)
+            remaining = total_package - total_collected
+            
+            return jsonify({
+                "status": "success",
+                "total_package": total_package,
+                "total_collected": total_collected,
+                "remaining_balance": remaining,
+                "session_count": len(sessions)
+            }), 200
+        except Exception as e:
+            logger.error(f"Error getting client balance: {e}")
+            return jsonify({"error": str(e)}), 500
+    
     @app.route("/api/clients/new", methods=["POST"])
     def submit_new_client():
         """Process new client registration."""
