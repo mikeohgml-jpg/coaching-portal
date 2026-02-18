@@ -84,6 +84,22 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="paymentMethod" class="form-label">Payment Method *</label>
+                        <select 
+                            class="form-select" 
+                            id="paymentMethod" 
+                            name="payment_method" 
+                            required>
+                            <option value="">-- Select payment method --</option>
+                            <option value="upfront_deposit">Upfront Deposit Package</option>
+                            <option value="pay_per_session">Pay Per Session (Cash)</option>
+                        </select>
+                        <div class="invalid-feedback">
+                            Please select a payment method.
+                        </div>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="startDate" class="form-label">Start Date *</label>
@@ -113,7 +129,9 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="amountPaid" class="form-label">Amount Paid ($) *</label>
+                        <label for="amountPaid" class="form-label">
+                            <span id="amountLabel">Amount Paid ($) *</span>
+                        </label>
                         <input 
                             type="number" 
                             class="form-control" 
@@ -121,8 +139,9 @@
                             name="amount_paid" 
                             placeholder="1500.00"
                             step="0.01"
-                            min="0.01"
+                            min="0"
                             required>
+                        <small id="amountHelp" class="form-text text-muted">Initial deposit amount</small>
                         <div class="invalid-feedback">
                             Please provide a valid amount.
                         </div>
@@ -188,6 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
             address: document.getElementById('address').value || null,
             contact: document.getElementById('contact').value || null,
             package_type: document.getElementById('packageType').value,
+            payment_method: document.getElementById('paymentMethod').value,
             start_date: document.getElementById('startDate').value,
             end_date: document.getElementById('endDate').value,
             amount_paid: parseFloat(document.getElementById('amountPaid').value),
@@ -246,6 +266,29 @@ document.addEventListener('DOMContentLoaded', function() {
         messageDiv.textContent = message;
         messageDiv.classList.remove('d-none');
     }
+    
+    // Payment method conditional logic
+    document.getElementById('paymentMethod').addEventListener('change', function() {
+        const amountInput = document.getElementById('amountPaid');
+        const label = document.getElementById('amountLabel');
+        const help = document.getElementById('amountHelp');
+        
+        if (this.value === 'pay_per_session') {
+            amountInput.value = '0';
+            amountInput.readOnly = true;
+            amountInput.min = '0';
+            label.textContent = 'Amount Paid ($)';
+            help.textContent = 'Client will pay cash per session - no upfront deposit';
+            help.className = 'form-text text-info fw-bold';
+        } else if (this.value === 'upfront_deposit') {
+            amountInput.value = '';
+            amountInput.readOnly = false;
+            amountInput.min = '0.01';
+            label.textContent = 'Amount Paid ($) *';
+            help.textContent = 'Initial deposit amount';
+            help.className = 'form-text text-muted';
+        }
+    });
 });
 </script>
 {% endblock %}

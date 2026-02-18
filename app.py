@@ -176,6 +176,32 @@ def create_app():
             logger.error(f"Error: {e}")
             return jsonify({"error": str(e)}), 500
     
+    @app.route("/api/clients/<string:client_name>/balance", methods=["GET"])
+    @login_required
+    def get_client_balance(client_name):
+        """Get client balance information."""
+        if not client_service or not sheets_service:
+            return jsonify({"error": "Service not available"}), 503
+        try:
+            client = sheets_service.get_client_by_name(client_name)
+            if not client:
+                return jsonify({"error": "Client not found"}), 404
+            
+            sessions = sheets_service.get_client_history(client_name)
+            total_collected = sum(float(s.get('amount_collected', 0)) for s in sessions)
+            total_package = float(client.get('amount_paid', 0))
+            remaining = total_package - total_collected
+            
+            return jsonify({
+                "status": "success",
+                "total_package": total_package,
+                "total_collected": total_collected,
+                "remaining_balance": remaining
+            }), 200
+        except Exception as e:
+            logger.error(f"Error getting client balance: {e}")
+            return jsonify({"error": str(e)}), 500
+    
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({"error": "Not found"}), 404

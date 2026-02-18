@@ -211,7 +211,7 @@ class GoogleSheetsService:
             invoice_number = self.get_max_invoice_number()
             
             # Prepare row data in correct column order (matching actual sheet structure):
-            # A:Client ID, B:Name, C:Address, D:Contact, E:Email, F:Package, G:Start, H:End, I:Amount, J:Contract, K:Invoice, L:Created At, M:Notes
+            # A:Client ID, B:Name, C:Address, D:Contact, E:Email, F:Package, G:Start, H:End, I:Amount, J:Payment Method, K:Contract, L:Invoice, M:Created At, N:Notes
             row = [
                 client_id,                              # A: Client ID
                 client_data.get("name", ""),           # B: Name
@@ -222,16 +222,17 @@ class GoogleSheetsService:
                 client_data.get("start_date", ""),     # G: Start Date
                 client_data.get("end_date", ""),       # H: End Date
                 str(client_data.get("amount_paid", 0)), # I: Amount Paid
-                contract_number,                        # J: Contract Number (auto-generated)
-                invoice_number,                         # K: Invoice Number (auto-generated from max across both sheets)
-                datetime.utcnow().isoformat(),         # L: Created At
-                client_data.get("notes", "")           # M: Notes
+                client_data.get("payment_method", "upfront_deposit"), # J: Payment Method
+                contract_number,                        # K: Contract Number (auto-generated)
+                invoice_number,                         # L: Invoice Number (auto-generated from max across both sheets)
+                datetime.utcnow().isoformat(),         # M: Created At
+                client_data.get("notes", "")           # N: Notes
             ]
             
             # Append to Clients sheet
             result = self.service.spreadsheets().values().append(
                 spreadsheetId=self.clients_sheet_id,
-                range='A:M',
+                range='A:N',
                 valueInputOption='USER_ENTERED',
                 body={'values': [row]}
             ).execute()

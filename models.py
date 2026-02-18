@@ -10,11 +10,21 @@ class NewClientFormData(BaseModel):
     
     name: str = Field(..., min_length=1, max_length=255)
     email: EmailStr
+    address: Optional[str] = Field(None, max_length=500)
+    contact: Optional[str] = Field(None, max_length=20)
     package_type: str = Field(..., description="Type of coaching package")
+    payment_method: str = Field(..., description="upfront_deposit or pay_per_session")
     start_date: str = Field(..., description="YYYY-MM-DD format")
     end_date: str = Field(..., description="YYYY-MM-DD format")
-    amount_paid: float = Field(..., gt=0)
+    amount_paid: float = Field(..., ge=0)
     notes: Optional[str] = None
+    
+    @validator("payment_method")
+    def validate_payment_method(cls, v):
+        """Validate payment method is valid."""
+        if v not in ["upfront_deposit", "pay_per_session"]:
+            raise ValueError("payment_method must be 'upfront_deposit' or 'pay_per_session'")
+        return v
     
     @validator("start_date", "end_date")
     def validate_date_format(cls, v):
@@ -33,6 +43,16 @@ class NewClientFormData(BaseModel):
             end = datetime.strptime(v, "%Y-%m-%d")
             if end <= start:
                 raise ValueError("End date must be after start date")
+        return v
+    
+    @validator("amount_paid")
+    def validate_amount_paid_by_method(cls, v, values):
+        """Validate amount_paid based on payment_method."""
+        if "payment_method" in values:
+            if values["payment_method"] == "upfront_deposit" and v <= 0:
+                raise ValueError("amount_paid must be greater than 0 for upfront_deposit")
+            elif values["payment_method"] == "pay_per_session" and v != 0:
+                raise ValueError("amount_paid must be 0 for pay_per_session")
         return v
     
     model_config = {"json_schema_extra": {

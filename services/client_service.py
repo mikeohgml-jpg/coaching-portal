@@ -73,6 +73,7 @@ class ClientService:
                 "address": form_data.address or "",
                 "contact": form_data.contact or "",
                 "package_type": form_data.package_type,
+                "payment_method": form_data.payment_method,
                 "start_date": form_data.start_date,
                 "end_date": form_data.end_date,
                 "amount_paid": form_data.amount_paid,
