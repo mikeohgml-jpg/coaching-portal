@@ -197,7 +197,13 @@ def create_app():
             sessions = sheets_service.get_client_history(client_name)
             total_collected = sum(float(s.get('amount_collected', 0)) for s in sessions)
             total_package = float(client.get('amount_paid', 0))
-            remaining = total_package - total_collected
+            payment_method = client.get('payment_method', 'upfront_deposit')
+            
+            # Calculate remaining balance based on payment method
+            if payment_method == 'pay_per_session':
+                remaining = 0  # Pay-per-session shows no negative balance
+            else:
+                remaining = total_package - total_collected
             
             return jsonify({
                 "status": "success",

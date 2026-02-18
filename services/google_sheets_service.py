@@ -117,7 +117,7 @@ class GoogleSheetsService:
                     continue
                 
                 # Parse columns based on actual sheet structure:
-                # A:Client ID, B:Name, C:Address, D:Contact, E:Email, F:Package, G:Start, H:End, I:Amount, J:Contract, K:Invoice, L:Created At, M:Notes
+                # A:Client ID, B:Name, C:Address, D:Contact, E:Email, F:Package, G:Start, H:End, I:Amount, J:Payment Method, K:Contract, L:Invoice, M:Created At, N:Notes
                 client = {
                     "client_id": row[0] if len(row) > 0 else "",
                     "name": row[1] if len(row) > 1 else "",
@@ -128,10 +128,11 @@ class GoogleSheetsService:
                     "start_date": row[6] if len(row) > 6 else "",
                     "end_date": row[7] if len(row) > 7 else "",
                     "amount_paid": float(row[8]) if len(row) > 8 and row[8] else 0.0,
-                    "contract_number": row[9] if len(row) > 9 else "",
-                    "invoice_number": row[10] if len(row) > 10 else "",
-                    "created_at": row[11] if len(row) > 11 else "",
-                    "notes": row[12] if len(row) > 12 else ""
+                    "payment_method": row[9] if len(row) > 9 else "upfront_deposit",
+                    "contract_number": row[10] if len(row) > 10 else "",
+                    "invoice_number": row[11] if len(row) > 11 else "",
+                    "created_at": row[12] if len(row) > 12 else "",
+                    "notes": row[13] if len(row) > 13 else ""
                 }
                 
                 # Only add if client_id exists
@@ -160,10 +161,10 @@ class GoogleSheetsService:
             current_year = datetime.utcnow().year
             max_contract_num = 0
             
-            # Read from Clients sheet (Column J - Contract Number)
+            # Read from Clients sheet (Column K - Contract Number, updated from J)
             result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.clients_sheet_id,
-                range='J:J'
+                range='K:K'
             ).execute()
             
             values = result.get('values', [])
@@ -259,10 +260,10 @@ class GoogleSheetsService:
             import re
             max_invoice_num = 0
             
-            # Read from Clients sheet (Column K - Invoice Number) to find max for INV-5XXX format
+            # Read from Clients sheet (Column L - Invoice Number) to find max for INV-5XXX format
             clients_result = self.service.spreadsheets().values().get(
                 spreadsheetId=self.clients_sheet_id,
-                range='K:K'
+                range='L:L'
             ).execute()
             
             clients_values = clients_result.get('values', [])
@@ -347,6 +348,7 @@ class GoogleSheetsService:
             
             # Get total package amount from client
             total_package_amount = float(client.get("amount_paid", 0)) if client else 0.0
+            payment_method = client.get("payment_method", "upfront_deposit") if client else "upfront_deposit"
             
             # Auto-generate invoice number for session (INV-001 format)
             invoice_number = self.get_max_session_invoice_number()
@@ -360,8 +362,13 @@ class GoogleSheetsService:
             amount_collected = float(session_data.get("amount_collected", 0))
             new_total_collected = total_collected_so_far + amount_collected
             
-            # Calculate remaining balance
-            remaining_balance = total_package_amount - new_total_collected
+            # Calculate remaining balance based on payment method
+            if payment_method == "pay_per_session":
+                # For pay-per-session clients, show total collected (not negative balance)
+                remaining_balance = 0  # Or could be new_total_collected to show cumulative
+            else:
+                # For upfront deposit clients, show remaining balance
+                remaining_balance = total_package_amount - new_total_collected
             
             # Prepare row data matching actual sheet columns:
             # A:Client ID, B:Client Name, C:Coaching Type, D:Coaching Hours,

@@ -233,9 +233,15 @@ class ClientService:
             
             # Calculate balance information for invoice email
             total_package = float(client.get('amount_paid', 0))
+            payment_method = client.get('payment_method', 'upfront_deposit')
             sessions = self.sheets_service.get_client_history(form_data.client_name)
             total_collected = sum(float(s.get('amount_collected', 0)) for s in sessions)
-            remaining_balance = total_package - total_collected
+            
+            # Calculate remaining balance based on payment method
+            if payment_method == 'pay_per_session':
+                remaining_balance = 0  # Pay-per-session shows no negative balance
+            else:
+                remaining_balance = total_package - total_collected
             
             # Add balance info to session data for email
             session_data['total_package'] = total_package
